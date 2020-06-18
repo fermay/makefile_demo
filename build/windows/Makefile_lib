@@ -20,7 +20,7 @@ vpath	%.h  $(SRC_PATH)  $(SRC_PATH)/x86  $(SRC_PATH)/../utils/   $(SRC_PATH)/../
 CFLAGS	:= $(EXTRA_CFLAGS)
 CFLAGS	+= -Dstrtod=avpriv_strtod -Dsnprintf=avpriv_snprintf -D_snprintf=avpriv_snprintf -Dvsnprintf=avpriv_vsnprintf
 RCFLAGS := $(EXTRA_RCFLAGS)
-ASMFLAGS := $(EXTRA_ASMFLAGS)
+ASMFLAGS := $(EXTRA_AFLAGS)
 
 SRCS_INC	:= -I. -I$(SRC_PATH)
 

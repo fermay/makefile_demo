@@ -6,7 +6,7 @@ LOCAL_MODULE := libxTest
 ##参数初始化
 DEBUG ?= 0
 SHARED ?= 1
-INCLUDEASM := 
+ASM_DIR := 
 
 
 #设置汇编优化使能
@@ -31,26 +31,27 @@ CFLAGS += $(GDBEN)
 
 #特定架构编译参数
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-INCLUDEASM = aarch64
+ASM_DIR = aarch64
 CFLAGS += -march=armv8-a
 CFLAGS += -D_REENTRANT
 endif
+
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-INCLUDEASM = arm
+ASM_DIR = arm
 CFLAGS += -march=armv7-a -mfpu=neon -marm
-CFLAGS += -D_REENTRANT -DHAVE_NEON=1
-ASMFLAGS += -DARCH_ARM=1 -DHAVE_NEON=1
+CFLAGS += -D_REENTRANT -DARCH_ARM=$(OPTIM) -DHAVE_NEON=$(OPTIM)
+ASMFLAGS += -DARCH_ARM=$(OPTIM) -DHAVE_NEON=$(OPTIM)
 endif
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
-INCLUDEASM = x86
+ASM_DIR = x86
 CFLAGS += -march=x86-64 -m64 -msse -msse2 -msse3 -msse4.1
 CFLAGS += -D_REENTRANT
 ASMFLAGS += -DARCH_X86_64=1
 endif
 
 ifeq ($(TARGET_ARCH_ABI),x86)
-INCLUDEASM = x86
+ASM_DIR = x86
 CFLAGS += -march=i686 -m32 -msse -msse2 -msse3 -msse4.1
 CFLAGS += -D_REENTRANT
 ASMFLAGS += -DARCH_X86_64=0

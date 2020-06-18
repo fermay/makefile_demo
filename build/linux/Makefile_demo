@@ -11,7 +11,7 @@ DEMO_OBJS := $(patsubst %.c,%.o, $(DEMO_SRCS))
 
 DEMO_INC := $(DEMO_SRC_DIR)
 
-DEMO_CFLAGS := $(EXTRA_CFLAGS)
+DEMO_CFLAGS := $(DEBUG_FLAGS) $(EXTRA_CFLAGS)
 DEMO_CFLAGS += -I./
 ## $(DEMO_INC ) 
 

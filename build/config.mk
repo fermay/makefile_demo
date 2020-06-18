@@ -8,6 +8,13 @@ else
 	DEBUG_FLAGS := -g
 endif
 
+#设置是否开启汇编优化
+ifeq ($(PURE_C),0)
+	OPTIM := 1
+else
+	OPTIM := 0
+endif
+
 #########################################
 ############Windows系统 ###################
 ifeq ($(findstring MINGW, $(OS)), MINGW)
@@ -19,20 +26,20 @@ ifeq ($(findstring MINGW, $(OS)), MINGW)
 	ASM	:= yasm
 	
 ifeq ($(platform), x86_32)
-	ARCH_DEF	:=
+	ARCH_DEF	:= -DPREFIX -DARCH_X86_64=1 -DARCH_X86=$(OPTIM) -DHAVE_MMX=$(OPTIM)
 	OUT_DIR		:= ../../bin/x86
-	EXTRA_CFLAGS	:= -DWIN32 
-	EXTRA_ASMFLAGS	:= -f win32 -DARCH_X86_64=0 -DPREFIX  -DHAVE_MMX=1 -DARCH_X86=1
+	EXTRA_CFLAGS	:= -DWIN32 $(ARCH_DEF)
+	EXTRA_AFLAGS	:= -f win32 $(ARCH_DEF)
 	EXTRA_RCFLAGS	:= -DWIN32
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm
 endif
 
 ifeq ($(platform), x86_64)
-	ARCH_DEF	:=
+	ARCH_DEF	:= -DARCH_X86_64=1 -DARCH_X86=$(OPTIM) -DHAVE_MMX=$(OPTIM) 
 	OUT_DIR		:= ../../bin/x86_64
-	EXTRA_CFLAGS	:= -DWIN64
-	EXTRA_ASMFLAGS	:= -f x64  -DARCH_X86_64=1 -DHAVE_MMX=1 -DARCH_X86=1
+	EXTRA_CFLAGS	:= -DWIN64 $(ARCH_DEF)
+	EXTRA_AFLAGS	:= -f x64  $(ARCH_DEF) 
 	EXTRA_RCFLAGS	:= -DWIN64
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm
@@ -52,10 +59,10 @@ ifeq ($(findstring Linux, $(OS)), Linux)
 	
 ###ARM32架构	
 ifeq ($(platform), arm32)
-	ARCH_DEF	:= -DARCH_ARM=1 -DHAVE_NEON=1
+	ARCH_DEF	:= -DARCH_ARM=$(ASM_OPT_FLAGS) -DHAVE_NEON=1
 	EXTRA_CFLAGS := -march=armv7-a -marm $(ARCH_DEF)
-	EXTRA_LFLAGS := -march=armv7-a -marm 
 	EXTRA_AFLAGS := -march=armv7-a $(ARCH_DEF)
+	EXTRA_LFLAGS := -march=armv7-a -marm 
 	OUT_DIR		:= ../../bin/arm32
 	ASM_DIR		:= arm
 	ASM_SUFFIX	:= S
@@ -63,10 +70,10 @@ endif
 
 ###ARM64架构	
 ifeq ($(platform), arm64)
-	ARCH_DEF	:=
+	ARCH_DEF	:=-DARCH_AARCH64=$(ASM_OPT_FLAGS) -DHAVE_NEON=1
 	EXTRA_CFLAGS := -march=armv8-a $(ARCH_DEF)
-	EXTRA_LFLAGS := -march=armv8-a  
 	EXTRA_AFLAGS := -march=armv8-a $(ARCH_DEF)
+	EXTRA_LFLAGS := -march=armv8-a  
 	OUT_DIR		:= ../../bin/aarch64
 	ASM_DIR		:= aarch64
 	ASM_SUFFIX	:= S
@@ -74,10 +81,10 @@ endif
 
 ###X86_32架构	
 ifeq ($(platform), x86_32)
-	ARCH_DEF	:=-DARCH_X86_64=0
+	ARCH_DEF	:=-DARCH_X86_64=0 -DARCH_X86=$(OPTIM) -DHAVE_MMX=$(OPTIM)
 	EXTRA_CFLAGS := -m32 $(ARCH_DEF)
-	EXTRA_LFLAGS := -m32 -shared
 	EXTRA_AFLAGS :=  -f elf32 $(ARCH_DEF)  
+	EXTRA_LFLAGS := -m32 -shared
 	OUT_DIR		:= ../../bin/x86
 	ASM_DIR		:= x86
 	ASM_SUFFIX	:= asm
@@ -86,10 +93,10 @@ endif
 
 ###X86_64架构	
 ifeq ($(platform), x86_64)
-	ARCH_DEF	:= -DARCH_X86_64=1
+	ARCH_DEF	:= -DARCH_X86_64=1 -DARCH_X86=$(OPTIM) -DHAVE_MMX=$(OPTIM)
 	EXTRA_CFLAGS := -m64 $(ARCH_DEF)
-	EXTRA_LFLAGS := -m64 -shared -Wl,-Bsymbolic
 	EXTRA_AFLAGS := -f elf64 $(ARCH_DEF)
+	EXTRA_LFLAGS := -m64 -shared -Wl,-Bsymbolic
 	OUT_DIR		:= ../../bin/x86_64
 	ASM_DIR		:= x86
 	ASM_SUFFIX	:= asm
@@ -113,8 +120,8 @@ ifeq ($(target_plat), mac)
 ifeq ($(platform), x86_32)
 	ARCH_DEF :=
 	EXTRA_CFLAGS	:= -m32
-	EXTRA_LFLAGS	:= -m32 -dynamiclib -Wl, -dynamic -Wl, -read_only_relocs, suppress
 	EXTRA_AFLAGS	:= -f macho32 -m x86
+	EXTRA_LFLAGS	:= -m32 -dynamiclib -Wl, -dynamic -Wl, -read_only_relocs, suppress
 	OUT_DIR			:= ../../bin/mac32
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm
@@ -124,8 +131,8 @@ endif
 ifeq ($(platform), x86_64)
 	ARCH_DEF :=
 	EXTRA_CFLAGS	:= -m64
-	EXTRA_LFLAGS	:= -m64 -dynamiclib -Wl, -dynamic
 	EXTRA_AFLAGS	:= -f macho64 -m amd64
+	EXTRA_LFLAGS	:= -m64 -dynamiclib -Wl, -dynamic
 	OUT_DIR			:= ../../bin/mac64
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm
@@ -144,8 +151,8 @@ ifeq ($(platform), ios32)
 	
 	ARCH_DEF	:=
 	EXTRA_CFLAGS := -arch armv7 -mios-version-min=6.0
-	EXTRA_LFLAGS := -arch armv7 -mios-version-min=6.0
 	EXTRA_AFLAGS := -arch armv7 -mios-version-min=6.0
+	EXTRA_LFLAGS := -arch armv7 -mios-version-min=6.0
 	OUT_DIR		:= ../../bin/ios32
 	ASM_DIR			:= arm
 	ASM_SUFFIX		:= S
@@ -159,8 +166,8 @@ ifeq ($(platform), ios64)
 	
 	ARCH_DEF	:=
 	EXTRA_CFLAGS := -arch arm64 -mios-version-min=6.0
-	EXTRA_LFLAGS := -arch arm64 -mios-version-min=6.0
 	EXTRA_AFLAGS := -arch arm64 -mios-version-min=6.0
+	EXTRA_LFLAGS := -arch arm64 -mios-version-min=6.0
 	OUT_DIR		:= ../../bin/ios64
 	ASM_DIR			:= aarch64
 	ASM_SUFFIX		:= S
@@ -174,8 +181,8 @@ ifeq ($(platform), ios_sim32)
 	
 	ARCH_DEF	:=
 	EXTRA_CFLAGS := -arch i386 -mios-simulator-version-min=6.0
-	EXTRA_LFLAGS := -arch i386 -mios-simulator-version-min=6.0 -Wl, -Bsymbolic-functions -read_only_relocs suppress
 	EXTRA_AFLAGS := -f macho32 -m x86
+	EXTRA_LFLAGS := -arch i386 -mios-simulator-version-min=6.0 -Wl, -Bsymbolic-functions -read_only_relocs suppress
 	OUT_DIR		:= ../../bin/ios_sim
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm
@@ -189,8 +196,8 @@ ifeq ($(platform), ios_sim64)
 	
 	ARCH_DEF	:=
 	EXTRA_CFLAGS := -arch x86_64 -mios-simulator-version-min=6.0
-	EXTRA_LFLAGS := -arch x86_64 -mios-simulator-version-min=6.0
 	EXTRA_AFLAGS := -f macho64 -m amd64
+	EXTRA_LFLAGS := -arch x86_64 -mios-simulator-version-min=6.0
 	OUT_DIR		:= ../../bin/ios_sim
 	ASM_DIR			:= x86
 	ASM_SUFFIX		:= asm

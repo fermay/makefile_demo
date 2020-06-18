@@ -7,11 +7,11 @@ SRC_DIR := $(SCRIPT_PATH)/../../../src
 LOCAL_C_INCLUDES := ./	\
 			$(SRC_DIR)		\
 			$(SRC_DIR)/../include \
-			$(SRC_DIR)/$(INCLUDEASM)
+			$(SRC_DIR)/$(ASM_DIR)
 
 ##纯C文件路径
-C_SRCS:= $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/$(INCLUDEASM)/*.c)
-C_SRCS+= $(wildcard $(SRC_DIR)/../utils/*.c) $(wildcard $(SRC_DIR)/../utils/$(INCLUDEASM)/*.c)
+C_SRCS:= $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/$(ASM_DIR)/*.c)
+C_SRCS+= $(wildcard $(SRC_DIR)/../utils/*.c) $(wildcard $(SRC_DIR)/../utils/$(ASM_DIR)/*.c)
 #C_SRCS = C:\Users\fmy\Desktop\MakefileSample\src\h264pred.c 
 
 ##汇编文件路径

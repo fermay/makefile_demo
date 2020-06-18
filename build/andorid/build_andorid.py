@@ -6,8 +6,8 @@ import shutil
 import platform
 from sys import argv
 
-share_lib_name = 'libxTest.so'
-static_lib_name =  'libxTest.a'
+share_lib = 'libxTest.so'
+static_lib =  'libxTest.a'
 static_exe = 'demo'
 #检查是否为windows系统
 def  isWindowsSys():
@@ -16,7 +16,7 @@ def  isWindowsSys():
 def  isLinuxSys():
 	return 'Linux' in platform.system()
 #清空目录下的内容
-def delDirFile(pathDir):
+def  delDirFile(pathDir):
 	for i in os.listdir(pathDir):
 		file_path = os.path.join(pathDir, i)
 		if os.path.isfile(file_path):
@@ -24,14 +24,16 @@ def delDirFile(pathDir):
 		else:
 			delDirFile(file_path)
 			
-def process(ndk_dir, android_dir, pure_c, delimiter):
+def  excuteProcess(ndk_dir, android_dir, pure_c, delimiter):
 	ndk_build = ndk_dir + delimiter + 'ndk-build'
-	app_mk = android_dir + delimiter + 'jni' + delimiter + 'Application.mk'
-	mk_dir = android_dir + delimiter + 'jni'
-	static_lib_dir = android_dir + delimiter + 'obj' + delimiter + 'local' + delimiter
-	out_sha_lib = android_dir + delimiter + 'out' + delimiter
-	share_lib_dir = android_dir + delimiter + 'obj' + delimiter + 'local' + delimiter
-	out_sta_lib = android_dir + delimiter + 'out' + delimiter
+	mk_path = android_dir + delimiter + 'jni'
+	application_mk = android_dir + delimiter + 'jni' + delimiter + 'Application.mk'
+	
+	static_lib_path = android_dir + delimiter + 'obj' + delimiter + 'local' + delimiter
+	share_lib_path = android_dir + delimiter + 'obj' + delimiter + 'local' + delimiter
+	
+	out_share_path = android_dir + delimiter + 'out' + delimiter
+	out_static_path = android_dir + delimiter + 'out' + delimiter
 	if isWindowsSys():
 		cpy = "copy "
 	else:
@@ -47,40 +49,40 @@ def process(ndk_dir, android_dir, pure_c, delimiter):
 		if(not isExist):
 			os.mkdir(outdir)
 
-	pFile = open(app_mk, 'w')
+	pFile = open(application_mk, 'w')
 	cmd = 'APP_ABI := x86 armeabi-v7a\nAPP_PLATFORM := android-9\nNDK_TOOLCHAIN_VERSION := 4.9'
 	pFile.writelines(cmd)
 	pFile.write('\n')
 	pFile.close()
 	# "==================BUILD SHARED LIBRARY===================="
-	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_dir + delimiter + "Android_lib.mk" + " V=1 SHARED=1" + " PURE_C=" + opt
+	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_path + delimiter + "Android_lib.mk" + " V=1 SHARED=1" + " PURE_C=" + opt
 	print(cmd)
 	os.system(cmd)
-	cmd = cpy + share_lib_dir + "armeabi-v7a" + delimiter + share_lib_name + "  " + out_sha_lib + "armeabi-v7a" + delimiter 
+	cmd = cpy + share_lib_path + "armeabi-v7a" + delimiter + share_lib + "  " + out_share_path + "armeabi-v7a" + delimiter 
 	print(cmd)
 	os.system(cmd)
 
-	cmd = cpy + share_lib_dir + "x86" + delimiter + share_lib_name + "  " + out_sha_lib + "x86" + delimiter 
+	cmd = cpy + share_lib_path + "x86" + delimiter + share_lib + "  " + out_share_path + "x86" + delimiter 
 	os.system(cmd)
 	##其他平台依次类推
 	# "==================BUILD STATIC LIBRARY===================="
-	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_dir + delimiter + "Android_lib.mk" + " V=1 SHARED=0" + " PURE_C=" + opt
+	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_path + delimiter + "Android_lib.mk" + " V=1 SHARED=0" + " PURE_C=" + opt
 	print(cmd)
 	os.system(cmd)
-	cmd = cpy + static_lib_dir + "armeabi-v7a" + delimiter + static_lib_name + "  " + out_sta_lib + "armeabi-v7a" + delimiter
+	cmd = cpy + static_lib_path + "armeabi-v7a" + delimiter + static_lib + "  " + out_static_path + "armeabi-v7a" + delimiter
 	print(cmd)
 	os.system(cmd)
-	cmd = cpy + static_lib_dir + "x86" + delimiter + static_lib_name + "  " + out_sta_lib + "x86" + delimiter
+	cmd = cpy + static_lib_path + "x86" + delimiter + static_lib + "  " + out_static_path + "x86" + delimiter
 	os.system(cmd)
 
 	# "==================BUILD STATIC EXE ===================="
-	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_dir + delimiter + "Android_app.mk"
+	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_path + delimiter + "Android_app.mk"
 	print(cmd)
 	os.system(cmd)
-	cmd = cpy + static_lib_dir + "armeabi-v7a" + delimiter + static_exe + "  " + out_sta_lib + "armeabi-v7a" + delimiter
+	cmd = cpy + static_lib_path + "armeabi-v7a" + delimiter + static_exe + "  " + out_static_path + "armeabi-v7a" + delimiter
 	print(cmd)
 	os.system(cmd)
-	cmd = cpy + static_lib_dir + "x86" + delimiter + static_exe + "  " + out_sta_lib + "x86" + delimiter
+	cmd = cpy + static_lib_path + "x86" + delimiter + static_exe + "  " + out_static_path + "x86" + delimiter
 	os.system(cmd)
 ##############################main函数入口######################
 if __name__ == '__main__':
@@ -91,5 +93,5 @@ if __name__ == '__main__':
 	ndk_dir = argv[1]
 	pure_c = argv[2]
 	android_dir = os.getcwd()
-	process(ndk_dir,android_dir,pure_c,delimiter)
+	excuteProcess(ndk_dir,android_dir,pure_c,delimiter)
 

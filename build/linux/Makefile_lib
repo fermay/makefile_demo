@@ -31,11 +31,16 @@ LIBOUT 		:= $(LIB_PATH)/$(LIB_NAME).a $(LIB_PATH)/$(LIB_NAME).so
 #OBJS		:= $(patsubst %.s, %.o, $(patsubst %.cpp, %.o, $(patsubst %.c, %.o,$(SRC_FILES))))
 
 #方法2 遍历文件夹
-C_SRCS:= $(wildcard $(SRC_PATH)/*.c) $(wildcard $(SRC_PATH)/$(ASM_DIR)/*.c)
-C_SRCS+= $(wildcard $(SRC_PATH)/../utils/*.c) $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.c) 
+C_SRCS		:= 
+C_SRCS		+= $(wildcard $(SRC_PATH)/*.c) $(wildcard $(SRC_PATH)/$(ASM_DIR)/*.c)
+C_SRCS		+= $(wildcard $(SRC_PATH)/../utils/*.c) $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.c) 
 
-A_SRCS		:= $(wildcard $(SRC_PATH)/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
-A_SRCS		+= $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
+A_SRCS		:= 
+
+ifeq ($(PURE_C), 0)
+	A_SRCS		+=$(wildcard $(SRC_PATH)/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
+	A_SRCS		+= $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
+endif
 
 C_OBJS		:= $(patsubst %.c, %.o,$(C_SRCS))
 A_OBJS		+= $(patsubst %.$(ASM_SUFFIX), %.o,$(A_SRCS))
