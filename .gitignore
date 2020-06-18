@@ -1,0 +1,8 @@
+
+*.o
+*.d
+*.a
+*.1.tlog
+*.log
+*.obj
+build/vs2010/libxTest/ipch/libxtest-4f133f34/libxtest-9ac7f25b.ipch

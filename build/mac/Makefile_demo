@@ -1,0 +1,38 @@
+include ../config.mk
+
+DEMO_SRC_DIR = ../../demo
+
+vpath %.c $(DEMO_SRC_DIR)
+vpath %.h $(DEMO_SRC_DIR)
+
+DEMO_SRCS:= $(wildcard $(DEMO_SRC_DIR)/*.c)
+
+DEMO_OBJS := $(patsubst %.c,%.o, $(DEMO_SRCS))
+
+DEMO_INC := $(DEMO_SRC_DIR)
+
+DEMO_CFLAGS := $(EXTRA_CFLAGS)
+DEMO_CFLAGS += -I./
+## $(DEMO_INC ) 
+
+LIB_NAME := $(OUT_DIR)/libxTest.a
+
+TARGET_DEMO= $(OUT_DIR)/demo
+
+.PHONY: clean all
+all: clean $(LIB_NAME) $(TARGET_DEMO)
+
+$(TARGET_DEMO):$(DEMO_OBJS)
+	$(CC) $(EXTRA_CFLAGS) $(DEMO_LDFLAGS) -o $@ $^ $(LIB_NAME) 
+	
+%.o:%.c
+	$(CC) $(DEMO_CFLAGS) -c $^ -o $@ 
+
+$(LIB_NAME):
+	make -C ./ -f Makefile_lib
+	
+clean:
+	echo $(DEMO_OBJS)
+	rm -rf $(DEMO_OBJS) $(TARGET_DEMO) 
+	make -C ./ -f Makefile_lib clean
+

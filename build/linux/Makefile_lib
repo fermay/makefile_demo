@@ -1,0 +1,63 @@
+include ../config.mk
+
+SRC_PATH	:= ../../src
+INCLUDE_PATH:= ../../include
+LIB_PATH	:= $(OUT_DIR)
+LIB_NAME	:= libxTest
+
+#设置搜索目录
+VPATH = $(INCLUDE_PATH)
+VPATH += $(SRC_PATH)
+
+#设置编译的相关参数
+ARFLAGS		:= cru
+
+CFLAGS		:= $(DEBUG_FLAGS)
+CFLAGS		+=$(EXTRA_CFLAGS) -I$(INCLUDE_PATH)
+
+ASMFLAGS	:=
+ASMFLAGS	+= $(EXTRA_AFLAGS) -I$(INCLUDE_PATH)
+
+LDFALGS		:= -lm -ldl
+LDFALGS		+= $(EXTRA_LFLAGS)
+
+LIBOUT 		:= $(LIB_PATH)/$(LIB_NAME).a $(LIB_PATH)/$(LIB_NAME).so
+
+
+#获取需要编译的OBJS
+#方法1 指定文件
+#SRC_FILES	:=  $(SRC_PATH)/file1.c \
+#			    $(SRC_PATH)/file2.c 
+#OBJS		:= $(patsubst %.s, %.o, $(patsubst %.cpp, %.o, $(patsubst %.c, %.o,$(SRC_FILES))))
+
+#方法2 遍历文件夹
+C_SRCS:= $(wildcard $(SRC_PATH)/*.c) $(wildcard $(SRC_PATH)/$(ASM_DIR)/*.c)
+C_SRCS+= $(wildcard $(SRC_PATH)/../utils/*.c) $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.c) 
+
+A_SRCS		:= $(wildcard $(SRC_PATH)/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
+A_SRCS		+= $(wildcard $(SRC_PATH)/../utils/$(ASM_DIR)/*.$(ASM_SUFFIX)) 
+
+C_OBJS		:= $(patsubst %.c, %.o,$(C_SRCS))
+A_OBJS		+= $(patsubst %.$(ASM_SUFFIX), %.o,$(A_SRCS))
+
+OBJS	:= $(filter-out %x86inc.o %x86util.o, $(C_OBJS) $(A_OBJS))
+
+					
+all: clean $(LIBOUT)
+
+$(filter %.a, $(LIBOUT)):$(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+
+$(filter %.so, $(LIBOUT)):$(OBJS)
+	$(CC) $(LDFALGS) -o $@ $^
+	
+%.o:%.c
+	$(CC) $(CFLAGS) -o $@ -c $< 
+	
+%.o:%.asm
+	#echo $(OBJS)
+	$(ASM) $(ASMFLAGS)  -o $@ $<
+	
+clean:
+	rm -rf $(OBJS)
+	rm -rf $(LIBOUT)

@@ -1,0 +1,65 @@
+include ../config.mk
+
+SRC_PATH	:= ../../src
+OBJS_DIR	:= ../../objs
+
+LIB_NAME := $(OUT_DIR)/libxTest.lib  $(OUT_DIR)/xTest.dll 
+DLL_EXPORT_SYMBOL	:= ./symbols.t
+DLL_DEF	:= ./xTest.def
+DLL_IMPLIB	:= $(OUT_DIR)/xTest.lib
+DLL_PDB	:= $(OUT_DIR)/xTest.pdb
+OUT_PDB	:= -debug -PDB:$(DLL_PDB)
+
+#设置搜索目录
+vpath	%.c  $(SRC_PATH)  $(SRC_PATH)/x86   $(SRC_PATH)/../utils/   $(SRC_PATH)/../utils/x86
+vpath	%.asm  $(SRC_PATH)/x86   $(SRC_PATH)/../utils/x86
+vpath	%.h  $(SRC_PATH)  $(SRC_PATH)/x86  $(SRC_PATH)/../utils/   $(SRC_PATH)/../utils/x86
+
+
+#设置编译的相关参数
+CFLAGS	:= $(EXTRA_CFLAGS)
+CFLAGS	+= -Dstrtod=avpriv_strtod -Dsnprintf=avpriv_snprintf -D_snprintf=avpriv_snprintf -Dvsnprintf=avpriv_vsnprintf
+RCFLAGS := $(EXTRA_RCFLAGS)
+ASMFLAGS := $(EXTRA_ASMFLAGS)
+
+SRCS_INC	:= -I. -I$(SRC_PATH)
+
+#获取需要编译的OBJS
+C_SRCS:= $(wildcard $(SRC_PATH)/*.c) $(wildcard $(SRC_PATH)/x86/*.c)
+C_SRCS+= $(wildcard $(SRC_PATH)/../utils/*.c) 
+A_SRCS		:= $(wildcard $(SRC_PATH)/x86/*.asm) 
+A_SRCS		+= $(wildcard $(SRC_PATH)/../utils/x86/*.asm) 
+
+C_OBJS		:= $(subst .c,.o, $(C_SRCS))  
+A_OBJS		:= $(subst .asm,.o, $(A_SRCS))  
+OBJS		:= $(filter-out %x86inc.o %x86util.o, $(C_OBJS) $(A_OBJS))
+#OBJS_PREFIX	:= $(addprefix $(OBJS_DIR)/, $(notdir $(OBJS)))
+
+
+###编译
+LIBRARY_STATIC	:= -out:$(filter %.lib, $(LIB_NAME))
+LIBRARY_DYNAMIC	:= -out $(filter %.dll, $(LIB_NAME))
+
+.PHONY: clean all
+all:$(LIB_NAME)
+
+$(filter %.lib, $(LIB_NAME)):$(OBJS)
+	$(AR) $(LIBRARY_STATIC) $(OBJS)
+
+$(filter %.dll, $(LIB_NAME)):$(OBJS)
+	makedef $(DLL_EXPORT_SYMBOL) $(OBJS) > $(DLL_DEF)
+#	SubWCRev ./ ./win_dll_info.t ./win_dll_info.rc
+#	$(RC) $(RCFLAGS) -fo $(OBJS_DIR)/win_dll_info.res  ./win_dll_info.rc
+#	$(LD) -dll -def:$(DLL_DEF) -implib:$(DLL_IMPLIB) $(LIBRARY_DYNAMIC) $(OBJS) $(OBJS_DIR)/win_dll_info.res $(OUT_PDB)  
+	$(LD) -dll -def:$(DLL_DEF) -implib:$(DLL_IMPLIB) $(LIBRARY_DYNAMIC) $(OBJS)  $(OUT_PDB) 
+	
+%.o:%.c
+	$(CC) $(SRCS_INC) $(CFLAGS) -Fo $@ -c $<
+	
+%.o:%.asm
+	$(ASM) $(SRCS_INC) $(ASMFLAGS) $< -o $@
+	
+	
+clean:
+	rm -rf $(OBJS) $(LIB_NAME) $(DLL_IMPLIB) $(DLL_PDB) 
+
