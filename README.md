@@ -8,7 +8,7 @@
 
 # 【编译说明】  
 >  1、linux  
->> #编译脚本路径：build  
+>> #编译脚本路径：build/linux 
 >> [1]、32位  
 >>> make -f Makefile_demo platform=x86_32  
 
@@ -24,7 +24,7 @@
 >>> build_andorid.py F:\software\android-ndk-r10e pure_c=0
 
 > 3、windows  
->> #编译脚本路径：build  
+>> #编译脚本路径：build/windows
 >> [1]、32位  
 >>> make -f Makefile_demo platform=x86_32 
 
@@ -32,6 +32,7 @@
 >>> make -f Makefile_demo platform=x86_64
 
 > 4、mac
+>> #编译脚本路径: build/mac
 >> [1]、32位  //待验证 
 >>> make -f Makefile_demo target_plat=mac platform=x86_32 
 
@@ -39,5 +40,7 @@
 >>> make -f Makefile_demo target_plat=mac platform=x86_64 
 
 > 5、ios
+>> #编译脚本路径:build/mac
+>>> make -f Makefile_ios
 
 

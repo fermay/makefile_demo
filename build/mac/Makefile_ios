@@ -1,0 +1,27 @@
+.PHONY: all
+all:
+	mkdir -p $(shell pwd)/../../bin/tmp
+	#armv7
+	rm -rf $(shell pwd)/../../bin/ios32/libxTest.a
+	${MAKE} target_plat=ios platform=ios32
+	cp $(shell pwd)/../../bin/ios32/libxTest.a $(shell pwd)/../../bin/tmp/libxTest_armv7.a
+
+	#armv8
+	rm -rf $(shell pwd)/../../bin/ios64/libxTest.a
+	${MAKE} target_plat=ios  platform=ios64
+	cp $(shell pwd)/../../bin/ios64/libxTest.a $(shell pwd)/../../bin/tmp/libxTest_arm64.a
+	
+	#i386
+	rm -rf $(shell pwd)/../../bin/ios_sim/libxTest.a
+	${MAKE} target_plat=ios  platform=ios_sim32
+	cp $(shell pwd)/../../bin/ios_sim/libxTest.a $(shell pwd)/../../bin/tmp/libxTest_i386.a
+	
+	#x86_64
+	rm -rf $(shell pwd)/../../bin/ios_sim/libxTest.a
+	${MAKE} target_plat=ios  platform=ios_sim64
+	cp $(shell pwd)/../../bin/ios_sim/libxTest.a $(shell pwd)/../../bin/tmp/libxTest_x86_64.a
+	
+	rm -rf $(shell pwd)/../../bin/ios_sim/libxTest.a
+	lipo -create $(shell pwd)/../../bin/tmp/* -ouput $(shell pwd)/../../bin/ios_sim/libxTest.a
+	rm -rf $(shell pwd)/../../bin/tmp
+	
