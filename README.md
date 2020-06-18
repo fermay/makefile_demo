@@ -16,8 +16,8 @@
 >>> make -f Makefile_demo platform=x86_64  
 
 >> [3]、arm32  
->>> make -f Makefile_Demo_unix platform=arm32 CROSS=xxxx     
->>> For example: make -f Makefile_Demo platform=arm32 CROSS=arm-linux-androideabi-   
+>>> make -f Makefile_demo platform=arm32 CROSS=xxxx     
+>>> For example: make -f Makefile_demo platform=arm32 CROSS=arm-linux-androideabi-   
 
 > 2、android  
 >>  ##编译脚本路径：build/android  
