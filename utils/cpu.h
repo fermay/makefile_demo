@@ -1,122 +1,116 @@
-/*****************************************************************************
- * cpu.h: cpu detection
- *****************************************************************************
- * Copyright (C) 2004-2019 x264 project
+/*
+ * Copyright (c) 2000, 2001, 2002 Fabrice Bellard
  *
- * Authors: Loren Merritt <lorenm@u.washington.edu>
+ * This file is part of FFmpeg.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * FFmpeg is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * FFmpeg is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
- *
- * This program is also available under a commercial proprietary license.
- * For more information, contact us at licensing@x264.com.
- *****************************************************************************/
-
-#ifndef X264_CPU_H
-#define X264_CPU_H
-#include <stdint.h>
-
-/* CPU flags */
-
-/* x86 */
-#define X264_CPU_MMX                (1<<0)
-#define X264_CPU_MMX2               (1<<1)  /* MMX2 aka MMXEXT aka ISSE */
-#define X264_CPU_MMXEXT             X264_CPU_MMX2
-#define X264_CPU_SSE                (1<<2)
-#define X264_CPU_SSE2               (1<<3)
-#define X264_CPU_LZCNT              (1<<4)
-#define X264_CPU_SSE3               (1<<5)
-#define X264_CPU_SSSE3              (1<<6)
-#define X264_CPU_SSE4               (1<<7)  /* SSE4.1 */
-#define X264_CPU_SSE42              (1<<8)  /* SSE4.2 */
-#define X264_CPU_AVX                (1<<9)  /* Requires OS support even if YMM registers aren't used */
-#define X264_CPU_XOP                (1<<10) /* AMD XOP */
-#define X264_CPU_FMA4               (1<<11) /* AMD FMA4 */
-#define X264_CPU_FMA3               (1<<12)
-#define X264_CPU_BMI1               (1<<13)
-#define X264_CPU_BMI2               (1<<14)
-#define X264_CPU_AVX2               (1<<15)
-#define X264_CPU_AVX512             (1<<16) /* AVX-512 {F, CD, BW, DQ, VL}, requires OS support */
-/* x86 modifiers */
-#define X264_CPU_CACHELINE_32       (1<<17) /* avoid memory loads that span the border between two cachelines */
-#define X264_CPU_CACHELINE_64       (1<<18) /* 32/64 is the size of a cacheline in bytes */
-#define X264_CPU_SSE2_IS_SLOW       (1<<19) /* avoid most SSE2 functions on Athlon64 */
-#define X264_CPU_SSE2_IS_FAST       (1<<20) /* a few functions are only faster on Core2 and Phenom */
-#define X264_CPU_SLOW_SHUFFLE       (1<<21) /* The Conroe has a slow shuffle unit (relative to overall SSE performance) */
-#define X264_CPU_STACK_MOD4         (1<<22) /* if stack is only mod4 and not mod16 */
-#define X264_CPU_SLOW_ATOM          (1<<23) /* The Atom is terrible: slow SSE unaligned loads, slow
-                                             * SIMD multiplies, slow SIMD variable shifts, slow pshufb,
-                                             * cacheline split penalties -- gather everything here that
-                                             * isn't shared by other CPUs to avoid making half a dozen
-                                             * new SLOW flags. */
-#define X264_CPU_SLOW_PSHUFB        (1<<24) /* such as on the Intel Atom */
-#define X264_CPU_SLOW_PALIGNR       (1<<25) /* such as on the AMD Bobcat */
-
-/* PowerPC */
-#define X264_CPU_ALTIVEC         0x0000001
-
-/* ARM and AArch64 */
-#define X264_CPU_ARMV6           0x0000001
-#define X264_CPU_NEON            0x0000002  /* ARM NEON */
-#define X264_CPU_FAST_NEON_MRC   0x0000004  /* Transfer from NEON to ARM register is fast (Cortex-A9) */
-#define X264_CPU_ARMV8           0x0000008
-
-/* MIPS */
-#define X264_CPU_MSA             0x0000001  /* MIPS MSA */
-
-uint32_t x264_cpu_detect( void );
-int      x264_cpu_num_processors( void );
-void     x264_cpu_emms( void );
-void     x264_cpu_sfence( void );
-#if HAVE_MMX
-/* There is no way to forbid the compiler from using float instructions
- * before the emms so miscompilation could theoretically occur in the
- * unlikely event that the compiler reorders emms and float instructions. */
-#if HAVE_X86_INLINE_ASM
-/* Clobbering memory makes the compiler less likely to reorder code. */
-#define x264_emms() asm volatile( "emms":::"memory","st","st(1)","st(2)", \
-                                  "st(3)","st(4)","st(5)","st(6)","st(7)" )
-#else
-#define x264_emms() x264_cpu_emms()
-#endif
-#else
-#define x264_emms()
-#endif
-#define x264_sfence x264_cpu_sfence
-
-/* kludge:
- * gcc can't give variables any greater alignment than the stack frame has.
- * We need 32 byte alignment for AVX2, so here we make sure that the stack is
- * aligned to 32 bytes.
- * gcc 4.2 introduced __attribute__((force_align_arg_pointer)) to fix this
- * problem, but I don't want to require such a new version.
- * aligning to 32 bytes only works if the compiler supports keeping that
- * alignment between functions (osdep.h handles manual alignment of arrays
- * if it doesn't).
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with FFmpeg; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#if HAVE_MMX && (STACK_ALIGNMENT > 16 || (ARCH_X86 && STACK_ALIGNMENT > 4))
-intptr_t x264_stack_align( void (*func)(), ... );
-#define x264_stack_align(func,...) x264_stack_align((void (*)())func, __VA_ARGS__)
-#else
-#define x264_stack_align(func,...) func(__VA_ARGS__)
-#endif
 
-typedef struct
-{
-    const char *name;
-    uint32_t flags;
-} x264_cpu_name_t;
-extern const x264_cpu_name_t x264_cpu_names[];
+#ifndef AVUTIL_CPU_H
+#define AVUTIL_CPU_H
 
-#endif
+#include "attributes.h"
+
+#define AV_CPU_FLAG_FORCE    0x80000000 /* force usage of selected flags (OR) */
+
+    /* lower 16 bits - CPU features */
+#define AV_CPU_FLAG_MMX          0x0001 ///< standard MMX
+#define AV_CPU_FLAG_MMXEXT       0x0002 ///< SSE integer functions or AMD MMX ext
+#define AV_CPU_FLAG_MMX2         0x0002 ///< SSE integer functions or AMD MMX ext
+#define AV_CPU_FLAG_3DNOW        0x0004 ///< AMD 3DNOW
+#define AV_CPU_FLAG_SSE          0x0008 ///< SSE functions
+#define AV_CPU_FLAG_SSE2         0x0010 ///< PIV SSE2 functions
+#define AV_CPU_FLAG_SSE2SLOW 0x40000000 ///< SSE2 supported, but usually not faster
+                                        ///< than regular MMX/SSE (e.g. Core1)
+#define AV_CPU_FLAG_3DNOWEXT     0x0020 ///< AMD 3DNowExt
+#define AV_CPU_FLAG_SSE3         0x0040 ///< Prescott SSE3 functions
+#define AV_CPU_FLAG_SSE3SLOW 0x20000000 ///< SSE3 supported, but usually not faster
+                                        ///< than regular MMX/SSE (e.g. Core1)
+#define AV_CPU_FLAG_SSSE3        0x0080 ///< Conroe SSSE3 functions
+#define AV_CPU_FLAG_ATOM     0x10000000 ///< Atom processor, some SSSE3 instructions are slower
+#define AV_CPU_FLAG_SSE4         0x0100 ///< Penryn SSE4.1 functions
+#define AV_CPU_FLAG_SSE42        0x0200 ///< Nehalem SSE4.2 functions
+#define AV_CPU_FLAG_AVX          0x4000 ///< AVX functions: requires OS support even if YMM registers aren't used
+#define AV_CPU_FLAG_XOP          0x0400 ///< Bulldozer XOP functions
+#define AV_CPU_FLAG_FMA4         0x0800 ///< Bulldozer FMA4 functions
+// #if LIBAVUTIL_VERSION_MAJOR <52
+#define AV_CPU_FLAG_CMOV      0x1001000 ///< supports cmov instruction
+// #else
+// #define AV_CPU_FLAG_CMOV         0x1000 ///< supports cmov instruction
+// #endif
+#define AV_CPU_FLAG_AVX2         0x8000 ///< AVX2 functions: requires OS support even if YMM registers aren't used
+#define AV_CPU_FLAG_FMA3        0x10000 ///< Haswell FMA3 functions
+#define AV_CPU_FLAG_BMI1        0x20000 ///< Bit Manipulation Instruction Set 1
+#define AV_CPU_FLAG_BMI2        0x40000 ///< Bit Manipulation Instruction Set 2
+
+#define AV_CPU_FLAG_ALTIVEC      0x0001 ///< standard
+
+#define AV_CPU_FLAG_ARMV5TE      (1 << 0)
+#define AV_CPU_FLAG_ARMV6        (1 << 1)
+#define AV_CPU_FLAG_ARMV6T2      (1 << 2)
+#define AV_CPU_FLAG_VFP          (1 << 3)
+#define AV_CPU_FLAG_VFPV3        (1 << 4)
+#define AV_CPU_FLAG_NEON         (1 << 5)
+#define AV_CPU_FLAG_ARMV8        (1 << 6)
+#define AV_CPU_FLAG_SETEND       (1 <<16)
+
+/**
+ * Return the flags which specify extensions supported by the CPU.
+ * The returned value is affected by av_force_cpu_flags() if that was used
+ * before. So av_get_cpu_flags() can easily be used in a application to
+ * detect the enabled cpu flags.
+ */
+int av_get_cpu_flags(void);
+
+/**
+ * Disables cpu detection and forces the specified flags.
+ * -1 is a special case that disables forcing of specific flags.
+ */
+void av_force_cpu_flags(int flags);
+
+/**
+ * Set a mask on flags returned by av_get_cpu_flags().
+ * This function is mainly useful for testing.
+ * Please use av_force_cpu_flags() and av_get_cpu_flags() instead which are more flexible
+ *
+ * @warning this function is not thread safe.
+ */
+attribute_deprecated void av_set_cpu_flags_mask(int mask);
+
+/**
+ * Parse CPU flags from a string.
+ *
+ * The returned flags contain the specified flags as well as related unspecified flags.
+ *
+ * This function exists only for compatibility with libav.
+ * Please use av_parse_cpu_caps() when possible.
+ * @return a combination of AV_CPU_* flags, negative on error.
+ */
+attribute_deprecated
+int av_parse_cpu_flags(const char *s);
+
+/**
+ * Parse CPU caps from a string and update the given AV_CPU_* flags based on that.
+ *
+ * @return negative on error.
+ */
+int av_parse_cpu_caps(unsigned *flags, const char *s);
+
+/**
+ * @return the number of logical CPU cores present.
+ */
+int av_cpu_count(void);
+
+#endif /* AVUTIL_CPU_H */

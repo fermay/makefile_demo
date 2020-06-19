@@ -1,490 +1,407 @@
-/*****************************************************************************
- * cpu.c: cpu detection
- *****************************************************************************
- * Copyright (C) 2003-2019 x264 project
+/*
+ * This file is part of FFmpeg.
  *
- * Authors: Loren Merritt <lorenm@u.washington.edu>
- *          Laurent Aimar <fenrir@via.ecp.fr>
- *          Fiona Glaser <fiona@x264.com>
+ * FFmpeg is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
+ * FFmpeg is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
- *
- * This program is also available under a commercial proprietary license.
- * For more information, contact us at licensing@x264.com.
- *****************************************************************************/
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with FFmpeg; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
-//#include "base.h"
+#include <stdint.h>
+
 #include "cpu.h"
-#include <string.h>
-#include <stdio.h>
+#include "cpu_internal.h"
+//#include "config.h"
+//#include "opt.h"
+//#include "common.h"
 
-#if HAVE_POSIXTHREAD && SYS_LINUX
+#if HAVE_SCHED_GETAFFINITY
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <sched.h>
 #endif
-#if SYS_BEOS
-#include <kernel/OS.h>
+#if HAVE_GETPROCESSAFFINITYMASK
+#include <windows.h>
 #endif
-#if SYS_MACOSX || SYS_FREEBSD
+#if HAVE_SYSCTL
+#if HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
-#if SYS_OPENBSD
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <machine/cpu.h>
+#if HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
-const x264_cpu_name_t x264_cpu_names[] =
+static int flags, checked;
+
+void av_force_cpu_flags(int arg){
+    if (   (arg & ( AV_CPU_FLAG_3DNOW    |
+                    AV_CPU_FLAG_3DNOWEXT |
+                    AV_CPU_FLAG_SSE      |
+                    AV_CPU_FLAG_SSE2     |
+                    AV_CPU_FLAG_SSE2SLOW |
+                    AV_CPU_FLAG_SSE3     |
+                    AV_CPU_FLAG_SSE3SLOW |
+                    AV_CPU_FLAG_SSSE3    |
+                    AV_CPU_FLAG_SSE4     |
+                    AV_CPU_FLAG_SSE42    |
+                    AV_CPU_FLAG_AVX      |
+                    AV_CPU_FLAG_XOP      |
+                    AV_CPU_FLAG_FMA3     |
+                    AV_CPU_FLAG_FMA4     |
+                    AV_CPU_FLAG_AVX2     ))
+        && !(arg & AV_CPU_FLAG_MMX)) {
+        //av_log(NULL, AV_LOG_WARNING, "MMX implied by specified flags\n");
+        arg |= AV_CPU_FLAG_MMX;
+    }
+
+    flags   = arg;
+    checked = arg != -1;
+}
+
+int av_get_cpu_flags(void)
 {
-#if HAVE_MMX
-//  {"MMX",         X264_CPU_MMX},  // we don't support asm on mmx1 cpus anymore
-#define MMX2 X264_CPU_MMX|X264_CPU_MMX2
-    {"MMX2",        MMX2},
-    {"MMXEXT",      MMX2},
-    {"SSE",         MMX2|X264_CPU_SSE},
-#define SSE2 MMX2|X264_CPU_SSE|X264_CPU_SSE2
-    {"SSE2Slow",    SSE2|X264_CPU_SSE2_IS_SLOW},
-    {"SSE2",        SSE2},
-    {"SSE2Fast",    SSE2|X264_CPU_SSE2_IS_FAST},
-    {"LZCNT",       SSE2|X264_CPU_LZCNT},
-    {"SSE3",        SSE2|X264_CPU_SSE3},
-    {"SSSE3",       SSE2|X264_CPU_SSE3|X264_CPU_SSSE3},
-    {"SSE4.1",      SSE2|X264_CPU_SSE3|X264_CPU_SSSE3|X264_CPU_SSE4},
-    {"SSE4",        SSE2|X264_CPU_SSE3|X264_CPU_SSSE3|X264_CPU_SSE4},
-    {"SSE4.2",      SSE2|X264_CPU_SSE3|X264_CPU_SSSE3|X264_CPU_SSE4|X264_CPU_SSE42},
-#define AVX SSE2|X264_CPU_SSE3|X264_CPU_SSSE3|X264_CPU_SSE4|X264_CPU_SSE42|X264_CPU_AVX
-    {"AVX",         AVX},
-    {"XOP",         AVX|X264_CPU_XOP},
-    {"FMA4",        AVX|X264_CPU_FMA4},
-    {"FMA3",        AVX|X264_CPU_FMA3},
-    {"BMI1",        AVX|X264_CPU_LZCNT|X264_CPU_BMI1},
-    {"BMI2",        AVX|X264_CPU_LZCNT|X264_CPU_BMI1|X264_CPU_BMI2},
-#define AVX2 AVX|X264_CPU_FMA3|X264_CPU_LZCNT|X264_CPU_BMI1|X264_CPU_BMI2|X264_CPU_AVX2
-    {"AVX2",        AVX2},
-    {"AVX512",      AVX2|X264_CPU_AVX512},
-#undef AVX2
-#undef AVX
-#undef SSE2
-#undef MMX2
-    {"Cache32",         X264_CPU_CACHELINE_32},
-    {"Cache64",         X264_CPU_CACHELINE_64},
-    {"SlowAtom",        X264_CPU_SLOW_ATOM},
-    {"SlowPshufb",      X264_CPU_SLOW_PSHUFB},
-    {"SlowPalignr",     X264_CPU_SLOW_PALIGNR},
-    {"SlowShuffle",     X264_CPU_SLOW_SHUFFLE},
-    {"UnalignedStack",  X264_CPU_STACK_MOD4},
-#elif ARCH_PPC
-    {"Altivec",         X264_CPU_ALTIVEC},
+    if (checked)
+        return flags;
+
+   /* if (ARCH_AARCH64)
+        flags = ff_get_cpu_flags_aarch64();
+    if (ARCH_ARM)
+        flags = ff_get_cpu_flags_arm();
+    if (ARCH_PPC)
+        flags = ff_get_cpu_flags_ppc();*/
+    if (ARCH_X86)
+        flags = ff_get_cpu_flags_x86();
+
+    checked = 1;
+    return flags;
+}
+
+void av_set_cpu_flags_mask(int mask)
+{
+    checked       = 0;
+    flags         = av_get_cpu_flags() & mask;
+    checked       = 1;
+}
+
+#if 0
+int av_parse_cpu_flags(const char *s)
+{
+#define CPUFLAG_MMXEXT   (AV_CPU_FLAG_MMX      | AV_CPU_FLAG_MMXEXT | AV_CPU_FLAG_CMOV)
+#define CPUFLAG_3DNOW    (AV_CPU_FLAG_3DNOW    | AV_CPU_FLAG_MMX)
+#define CPUFLAG_3DNOWEXT (AV_CPU_FLAG_3DNOWEXT | CPUFLAG_3DNOW)
+#define CPUFLAG_SSE      (AV_CPU_FLAG_SSE      | CPUFLAG_MMXEXT)
+#define CPUFLAG_SSE2     (AV_CPU_FLAG_SSE2     | CPUFLAG_SSE)
+#define CPUFLAG_SSE2SLOW (AV_CPU_FLAG_SSE2SLOW | CPUFLAG_SSE2)
+#define CPUFLAG_SSE3     (AV_CPU_FLAG_SSE3     | CPUFLAG_SSE2)
+#define CPUFLAG_SSE3SLOW (AV_CPU_FLAG_SSE3SLOW | CPUFLAG_SSE3)
+#define CPUFLAG_SSSE3    (AV_CPU_FLAG_SSSE3    | CPUFLAG_SSE3)
+#define CPUFLAG_SSE4     (AV_CPU_FLAG_SSE4     | CPUFLAG_SSSE3)
+#define CPUFLAG_SSE42    (AV_CPU_FLAG_SSE42    | CPUFLAG_SSE4)
+#define CPUFLAG_AVX      (AV_CPU_FLAG_AVX      | CPUFLAG_SSE42)
+#define CPUFLAG_XOP      (AV_CPU_FLAG_XOP      | CPUFLAG_AVX)
+#define CPUFLAG_FMA3     (AV_CPU_FLAG_FMA3     | CPUFLAG_AVX)
+#define CPUFLAG_FMA4     (AV_CPU_FLAG_FMA4     | CPUFLAG_AVX)
+#define CPUFLAG_AVX2     (AV_CPU_FLAG_AVX2     | CPUFLAG_AVX)
+#define CPUFLAG_BMI1     (AV_CPU_FLAG_BMI1)
+#define CPUFLAG_BMI2     (AV_CPU_FLAG_BMI2     | CPUFLAG_BMI1)
+    static const AVOption cpuflags_opts[] = {
+        { "flags"   , NULL, 0, AV_OPT_TYPE_FLAGS, { .i64 = 0 }, INT64_MIN, INT64_MAX, .unit = "flags" },
+#if   ARCH_PPC
+        { "altivec" , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ALTIVEC  },    .unit = "flags" },
+#elif ARCH_X86
+        { "mmx"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_MMX      },    .unit = "flags" },
+        { "mmxext"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_MMXEXT       },    .unit = "flags" },
+        { "sse"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE          },    .unit = "flags" },
+        { "sse2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE2         },    .unit = "flags" },
+        { "sse2slow", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE2SLOW     },    .unit = "flags" },
+        { "sse3"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE3         },    .unit = "flags" },
+        { "sse3slow", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE3SLOW     },    .unit = "flags" },
+        { "ssse3"   , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSSE3        },    .unit = "flags" },
+        { "atom"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ATOM     },    .unit = "flags" },
+        { "sse4.1"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE4         },    .unit = "flags" },
+        { "sse4.2"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_SSE42        },    .unit = "flags" },
+        { "avx"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_AVX          },    .unit = "flags" },
+        { "xop"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_XOP          },    .unit = "flags" },
+        { "fma3"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_FMA3         },    .unit = "flags" },
+        { "fma4"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_FMA4         },    .unit = "flags" },
+        { "avx2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_AVX2         },    .unit = "flags" },
+        { "bmi1"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_BMI1         },    .unit = "flags" },
+        { "bmi2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_BMI2         },    .unit = "flags" },
+        { "3dnow"   , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_3DNOW        },    .unit = "flags" },
+        { "3dnowext", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPUFLAG_3DNOWEXT     },    .unit = "flags" },
+        { "cmov",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_CMOV     },    .unit = "flags" },
 #elif ARCH_ARM
-    {"ARMv6",           X264_CPU_ARMV6},
-    {"NEON",            X264_CPU_NEON},
-    {"FastNeonMRC",     X264_CPU_FAST_NEON_MRC},
+        { "armv5te",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV5TE  },    .unit = "flags" },
+        { "armv6",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV6    },    .unit = "flags" },
+        { "armv6t2",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV6T2  },    .unit = "flags" },
+        { "vfp",      NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFP      },    .unit = "flags" },
+        { "vfpv3",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFPV3    },    .unit = "flags" },
+        { "neon",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_NEON     },    .unit = "flags" },
 #elif ARCH_AARCH64
-    {"ARMv8",           X264_CPU_ARMV8},
-    {"NEON",            X264_CPU_NEON},
-#elif ARCH_MIPS
-    {"MSA",             X264_CPU_MSA},
+        { "armv8",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV8    },    .unit = "flags" },
+        { "neon",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_NEON     },    .unit = "flags" },
+        { "vfp",      NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFP      },    .unit = "flags" },
 #endif
-    {"", 0},
+        { NULL },
+    };
+    static const AVClass class = {
+        .class_name = "cpuflags",
+        .item_name  = av_default_item_name,
+        .option     = cpuflags_opts,
+        .version    = LIBAVUTIL_VERSION_INT,
+    };
+
+    int flags = 0, ret;
+    const AVClass *pclass = &class;
+
+    if ((ret = av_opt_eval_flags(&pclass, &cpuflags_opts[0], s, &flags)) < 0)
+        return ret;
+
+    return flags & INT_MAX;
+}
+
+int av_parse_cpu_caps(unsigned *flags, const char *s)
+{
+        static const AVOption cpuflags_opts[] = {
+        { "flags"   , NULL, 0, AV_OPT_TYPE_FLAGS, { .i64 = 0 }, INT64_MIN, INT64_MAX, .unit = "flags" },
+#if   ARCH_PPC
+        { "altivec" , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ALTIVEC  },    .unit = "flags" },
+#elif ARCH_X86
+        { "mmx"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_MMX      },    .unit = "flags" },
+        { "mmx2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_MMX2     },    .unit = "flags" },
+        { "mmxext"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_MMX2     },    .unit = "flags" },
+        { "sse"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE      },    .unit = "flags" },
+        { "sse2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE2     },    .unit = "flags" },
+        { "sse2slow", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE2SLOW },    .unit = "flags" },
+        { "sse3"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE3     },    .unit = "flags" },
+        { "sse3slow", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE3SLOW },    .unit = "flags" },
+        { "ssse3"   , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSSE3    },    .unit = "flags" },
+        { "atom"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ATOM     },    .unit = "flags" },
+        { "sse4.1"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE4     },    .unit = "flags" },
+        { "sse4.2"  , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SSE42    },    .unit = "flags" },
+        { "avx"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_AVX      },    .unit = "flags" },
+        { "xop"     , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_XOP      },    .unit = "flags" },
+        { "fma3"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_FMA3     },    .unit = "flags" },
+        { "fma4"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_FMA4     },    .unit = "flags" },
+        { "avx2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_AVX2     },    .unit = "flags" },
+        { "bmi1"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_BMI1     },    .unit = "flags" },
+        { "bmi2"    , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_BMI2     },    .unit = "flags" },
+        { "3dnow"   , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_3DNOW    },    .unit = "flags" },
+        { "3dnowext", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_3DNOWEXT },    .unit = "flags" },
+        { "cmov",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_CMOV     },    .unit = "flags" },
+
+#define CPU_FLAG_P2 AV_CPU_FLAG_CMOV | AV_CPU_FLAG_MMX
+#define CPU_FLAG_P3 CPU_FLAG_P2 | AV_CPU_FLAG_MMX2 | AV_CPU_FLAG_SSE
+#define CPU_FLAG_P4 CPU_FLAG_P3| AV_CPU_FLAG_SSE2
+        { "pentium2", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_P2          },    .unit = "flags" },
+        { "pentium3", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_P3          },    .unit = "flags" },
+        { "pentium4", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_P4          },    .unit = "flags" },
+
+#define CPU_FLAG_K62 AV_CPU_FLAG_MMX | AV_CPU_FLAG_3DNOW
+#define CPU_FLAG_ATHLON   CPU_FLAG_K62 | AV_CPU_FLAG_CMOV | AV_CPU_FLAG_3DNOWEXT | AV_CPU_FLAG_MMX2
+#define CPU_FLAG_ATHLONXP CPU_FLAG_ATHLON | AV_CPU_FLAG_SSE
+#define CPU_FLAG_K8  CPU_FLAG_ATHLONXP | AV_CPU_FLAG_SSE2
+        { "k6",       NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_MMX      },    .unit = "flags" },
+        { "k62",      NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_K62         },    .unit = "flags" },
+        { "athlon",   NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_ATHLON      },    .unit = "flags" },
+        { "athlonxp", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_ATHLONXP    },    .unit = "flags" },
+        { "k8",       NULL, 0, AV_OPT_TYPE_CONST, { .i64 = CPU_FLAG_K8          },    .unit = "flags" },
+#elif ARCH_ARM
+        { "armv5te",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV5TE  },    .unit = "flags" },
+        { "armv6",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV6    },    .unit = "flags" },
+        { "armv6t2",  NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV6T2  },    .unit = "flags" },
+        { "vfp",      NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFP      },    .unit = "flags" },
+        { "vfpv3",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFPV3    },    .unit = "flags" },
+        { "neon",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_NEON     },    .unit = "flags" },
+        { "setend",   NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_SETEND   },    .unit = "flags" },
+#elif ARCH_AARCH64
+        { "armv8",    NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_ARMV8    },    .unit = "flags" },
+        { "neon",     NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_NEON     },    .unit = "flags" },
+        { "vfp",      NULL, 0, AV_OPT_TYPE_CONST, { .i64 = AV_CPU_FLAG_VFP      },    .unit = "flags" },
+#endif
+        { NULL },
+    };
+    static const AVClass class = {
+        .class_name = "cpuflags",
+        .item_name  = av_default_item_name,
+        .option     = cpuflags_opts,
+        .version    = LIBAVUTIL_VERSION_INT,
+    };
+    const AVClass *pclass = &class;
+
+    return av_opt_eval_flags(&pclass, &cpuflags_opts[0], s, flags);
+}
+#endif
+
+int av_cpu_count(void)
+{
+    static volatile int printed;
+
+    int nb_cpus = 1;
+#if HAVE_SCHED_GETAFFINITY && defined(CPU_COUNT)
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+
+    if (!sched_getaffinity(0, sizeof(cpuset), &cpuset))
+        nb_cpus = CPU_COUNT(&cpuset);
+#elif HAVE_GETPROCESSAFFINITYMASK
+    DWORD_PTR proc_aff, sys_aff;
+    if (GetProcessAffinityMask(GetCurrentProcess(), &proc_aff, &sys_aff))
+        nb_cpus = av_popcount64(proc_aff);
+#elif HAVE_SYSCTL && defined(HW_NCPU)
+    int mib[2] = { CTL_HW, HW_NCPU };
+    size_t len = sizeof(nb_cpus);
+
+    if (sysctl(mib, 2, &nb_cpus, &len, NULL, 0) == -1)
+        nb_cpus = 0;
+#elif HAVE_SYSCONF && defined(_SC_NPROC_ONLN)
+    nb_cpus = sysconf(_SC_NPROC_ONLN);
+#elif HAVE_SYSCONF && defined(_SC_NPROCESSORS_ONLN)
+    nb_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+
+    if (!printed) {
+        //av_log(NULL, AV_LOG_DEBUG, "detected %d logical cores\n", nb_cpus);
+        printed = 1;
+    }
+
+    return nb_cpus;
+}
+
+#ifdef TEST
+
+#include <stdio.h>
+#include "avstring.h"
+
+#if !HAVE_GETOPT
+#include "compat/getopt.c"
+#endif
+
+static const struct {
+    int flag;
+    const char *name;
+} cpu_flag_tab[] = {
+#if   ARCH_AARCH64
+    { AV_CPU_FLAG_ARMV8,     "armv8"      },
+    { AV_CPU_FLAG_NEON,      "neon"       },
+    { AV_CPU_FLAG_VFP,       "vfp"        },
+#elif ARCH_ARM
+    { AV_CPU_FLAG_ARMV5TE,   "armv5te"    },
+    { AV_CPU_FLAG_ARMV6,     "armv6"      },
+    { AV_CPU_FLAG_ARMV6T2,   "armv6t2"    },
+    { AV_CPU_FLAG_VFP,       "vfp"        },
+    { AV_CPU_FLAG_VFPV3,     "vfpv3"      },
+    { AV_CPU_FLAG_NEON,      "neon"       },
+    { AV_CPU_FLAG_SETEND,    "setend"     },
+#elif ARCH_PPC
+    { AV_CPU_FLAG_ALTIVEC,   "altivec"    },
+#elif ARCH_X86
+    { AV_CPU_FLAG_MMX,       "mmx"        },
+    { AV_CPU_FLAG_MMXEXT,    "mmxext"     },
+    { AV_CPU_FLAG_SSE,       "sse"        },
+    { AV_CPU_FLAG_SSE2,      "sse2"       },
+    { AV_CPU_FLAG_SSE2SLOW,  "sse2slow"   },
+    { AV_CPU_FLAG_SSE3,      "sse3"       },
+    { AV_CPU_FLAG_SSE3SLOW,  "sse3slow"   },
+    { AV_CPU_FLAG_SSSE3,     "ssse3"      },
+    { AV_CPU_FLAG_ATOM,      "atom"       },
+    { AV_CPU_FLAG_SSE4,      "sse4.1"     },
+    { AV_CPU_FLAG_SSE42,     "sse4.2"     },
+    { AV_CPU_FLAG_AVX,       "avx"        },
+    { AV_CPU_FLAG_XOP,       "xop"        },
+    { AV_CPU_FLAG_FMA3,      "fma3"       },
+    { AV_CPU_FLAG_FMA4,      "fma4"       },
+    { AV_CPU_FLAG_3DNOW,     "3dnow"      },
+    { AV_CPU_FLAG_3DNOWEXT,  "3dnowext"   },
+    { AV_CPU_FLAG_CMOV,      "cmov"       },
+    { AV_CPU_FLAG_AVX2,      "avx2"       },
+    { AV_CPU_FLAG_BMI1,      "bmi1"       },
+    { AV_CPU_FLAG_BMI2,      "bmi2"       },
+#endif
+    { 0 }
 };
 
-#if (ARCH_PPC && SYS_LINUX) || (ARCH_ARM && !HAVE_NEON)
-#include <signal.h>
-#include <setjmp.h>
-static sigjmp_buf jmpbuf;
-static volatile sig_atomic_t canjump = 0;
-
-static void sigill_handler( int sig )
+static void print_cpu_flags(int cpu_flags, const char *type)
 {
-    if( !canjump )
-    {
-        signal( sig, SIG_DFL );
-        raise( sig );
-    }
+    int i;
 
-    canjump = 0;
-    siglongjmp( jmpbuf, 1 );
+    printf("cpu_flags(%s) = 0x%08X\n", type, cpu_flags);
+    printf("cpu_flags_str(%s) =", type);
+    for (i = 0; cpu_flag_tab[i].flag; i++)
+        if (cpu_flags & cpu_flag_tab[i].flag)
+            printf(" %s", cpu_flag_tab[i].name);
+    printf("\n");
 }
-#endif
 
-#if HAVE_MMX
-int ff_cpu_cpuid_test( void );
-void ff_cpu_cpuid( uint32_t op, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx );
-uint64_t ff_cpu_xgetbv( int xcr );
 
-uint32_t x264_cpu_detect( void )
+int main(int argc, char **argv)
 {
-    uint32_t cpu = 0;
-    uint32_t eax, ebx, ecx, edx;
-    uint32_t vendor[4] = {0};
-    uint32_t max_extended_cap, max_basic_cap;
+    int cpu_flags_raw = av_get_cpu_flags();
+    int cpu_flags_eff;
+    int cpu_count = av_cpu_count();
+    char threads[5] = "auto";
+    int i;
 
-#if !ARCH_X86_64
-    if( !ff_cpu_cpuid_test() )
-        return 0;
-#endif
-
-    ff_cpu_cpuid( 0, &max_basic_cap, vendor+0, vendor+2, vendor+1 );
-    if( max_basic_cap == 0 )
-        return 0;
-
-    ff_cpu_cpuid( 1, &eax, &ebx, &ecx, &edx );
-    if( edx&0x00800000 )
-        cpu |= X264_CPU_MMX;
-    else
-        return cpu;
-    if( edx&0x02000000 )
-        cpu |= X264_CPU_MMX2|X264_CPU_SSE;
-    if( edx&0x04000000 )
-        cpu |= X264_CPU_SSE2;
-    if( ecx&0x00000001 )
-        cpu |= X264_CPU_SSE3;
-    if( ecx&0x00000200 )
-        cpu |= X264_CPU_SSSE3|X264_CPU_SSE2_IS_FAST;
-    if( ecx&0x00080000 )
-        cpu |= X264_CPU_SSE4;
-    if( ecx&0x00100000 )
-        cpu |= X264_CPU_SSE42;
-
-    if( ecx&0x08000000 ) /* XGETBV supported and XSAVE enabled by OS */
-    {
-        uint64_t xcr0 = ff_cpu_xgetbv( 0 );
-        if( (xcr0&0x6) == 0x6 ) /* XMM/YMM state */
-        {
-            if( ecx&0x10000000 )
-                cpu |= X264_CPU_AVX;
-            if( ecx&0x00001000 )
-                cpu |= X264_CPU_FMA3;
-
-            if( max_basic_cap >= 7 )
-            {
-                ff_cpu_cpuid( 7, &eax, &ebx, &ecx, &edx );
-                if( ebx&0x00000008 )
-                    cpu |= X264_CPU_BMI1;
-                if( ebx&0x00000100 )
-                    cpu |= X264_CPU_BMI2;
-                if( ebx&0x00000020 )
-                    cpu |= X264_CPU_AVX2;
-
-                if( (xcr0&0xE0) == 0xE0 ) /* OPMASK/ZMM state */
-                {
-                    if( (ebx&0xD0030000) == 0xD0030000 )
-                        cpu |= X264_CPU_AVX512;
-                }
-            }
+    for(i = 0; cpu_flag_tab[i].flag; i++) {
+        unsigned tmp = 0;
+        if (av_parse_cpu_caps(&tmp, cpu_flag_tab[i].name) < 0) {
+            fprintf(stderr, "Table missing %s\n", cpu_flag_tab[i].name);
+            return 4;
         }
     }
 
-    ff_cpu_cpuid( 0x80000000, &eax, &ebx, &ecx, &edx );
-    max_extended_cap = eax;
-
-    if( max_extended_cap >= 0x80000001 )
-    {
-        ff_cpu_cpuid( 0x80000001, &eax, &ebx, &ecx, &edx );
-
-        if( ecx&0x00000020 )
-            cpu |= X264_CPU_LZCNT;             /* Supported by Intel chips starting with Haswell */
-        if( ecx&0x00000040 ) /* SSE4a, AMD only */
-        {
-            int family = ((eax>>8)&0xf) + ((eax>>20)&0xff);
-            cpu |= X264_CPU_SSE2_IS_FAST;      /* Phenom and later CPUs have fast SSE units */
-            if( family == 0x14 )
-            {
-                cpu &= ~X264_CPU_SSE2_IS_FAST; /* SSSE3 doesn't imply fast SSE anymore... */
-                cpu |= X264_CPU_SSE2_IS_SLOW;  /* Bobcat has 64-bit SIMD units */
-                cpu |= X264_CPU_SLOW_PALIGNR;  /* palignr is insanely slow on Bobcat */
-            }
-            if( family == 0x16 )
-            {
-                cpu |= X264_CPU_SLOW_PSHUFB;   /* Jaguar's pshufb isn't that slow, but it's slow enough
-                                                * compared to alternate instruction sequences that this
-                                                * is equal or faster on almost all such functions. */
-            }
-        }
-
-        if( cpu & X264_CPU_AVX )
-        {
-            if( ecx&0x00000800 ) /* XOP */
-                cpu |= X264_CPU_XOP;
-            if( ecx&0x00010000 ) /* FMA4 */
-                cpu |= X264_CPU_FMA4;
-        }
-
-        if( !strcmp((char*)vendor, "AuthenticAMD") )
-        {
-            if( edx&0x00400000 )
-                cpu |= X264_CPU_MMX2;
-            if( (cpu&X264_CPU_SSE2) && !(cpu&X264_CPU_SSE2_IS_FAST) )
-                cpu |= X264_CPU_SSE2_IS_SLOW; /* AMD CPUs come in two types: terrible at SSE and great at it */
-        }
-    }
-
-    if( !strcmp((char*)vendor, "GenuineIntel") )
-    {
-		int family = 0;
-		int model  = 0;
-        ff_cpu_cpuid( 1, &eax, &ebx, &ecx, &edx );
-        family = ((eax>>8)&0xf) + ((eax>>20)&0xff);
-        model  = ((eax>>4)&0xf) + ((eax>>12)&0xf0);
-        if( family == 6 )
-        {
-            /* Detect Atom CPU */
-            if( model == 28 )
-            {
-                cpu |= X264_CPU_SLOW_ATOM;
-                cpu |= X264_CPU_SLOW_PSHUFB;
-            }
-            /* Conroe has a slow shuffle unit. Check the model number to make sure not
-             * to include crippled low-end Penryns and Nehalems that don't have SSE4. */
-            else if( (cpu&X264_CPU_SSSE3) && !(cpu&X264_CPU_SSE4) && model < 23 )
-                cpu |= X264_CPU_SLOW_SHUFFLE;
-        }
-    }
-
-    if( (!strcmp((char*)vendor, "GenuineIntel") || !strcmp((char*)vendor, "CyrixInstead")) && !(cpu&X264_CPU_SSE42))
-    {
-		int cache = 0;
-        /* cacheline size is specified in 3 places, any of which may be missing */
-        ff_cpu_cpuid( 1, &eax, &ebx, &ecx, &edx );
-        cache = (ebx&0xff00)>>5; // cflush size
-        if( !cache && max_extended_cap >= 0x80000006 )
-        {
-            ff_cpu_cpuid( 0x80000006, &eax, &ebx, &ecx, &edx );
-            cache = ecx&0xff; // cacheline size
-        }
-        if( !cache && max_basic_cap >= 2 )
-        {
-            // Cache and TLB Information
-            static const char cache32_ids[] = { 0x0a, 0x0c, 0x41, 0x42, 0x43, 0x44, 0x45, 0x82, 0x83, 0x84, 0x85, 0 };
-            static const char cache64_ids[] = { 0x22, 0x23, 0x25, 0x29, 0x2c, 0x46, 0x47, 0x49, 0x60, 0x66, 0x67,
-                                                0x68, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7c, 0x7f, 0x86, 0x87, 0 };
-            uint32_t buf[4];
-            int max, i = 0;
-            do {
-				int j = 0;
-                ff_cpu_cpuid( 2, buf+0, buf+1, buf+2, buf+3 );
-                max = buf[0]&0xff;
-                buf[0] &= ~0xff;
-                for( j = 0; j < 4; j++ )
-                    if( !(buf[j]>>31) )
-                        while( buf[j] )
-                        {
-                            if( strchr( cache32_ids, buf[j]&0xff ) )
-                                cache = 32;
-                            if( strchr( cache64_ids, buf[j]&0xff ) )
-                                cache = 64;
-                            buf[j] >>= 8;
-                        }
-            } while( ++i < max );
-        }
-
-        if( cache == 32 )
-            cpu |= X264_CPU_CACHELINE_32;
-        else if( cache == 64 )
-            cpu |= X264_CPU_CACHELINE_64;
-        else
-			printf("unable to determine cacheline size\n");
-            //x264_log_internal( X264_LOG_WARNING, "unable to determine cacheline size\n" );
-    }
-
-#if STACK_ALIGNMENT < 16
-    cpu |= X264_CPU_STACK_MOD4;
-#endif
-
-    return cpu;
-}
-
-#elif ARCH_PPC && HAVE_ALTIVEC
-
-#if SYS_MACOSX || SYS_OPENBSD || SYS_FREEBSD
-#include <sys/sysctl.h>
-uint32_t x264_cpu_detect( void )
-{
-    /* Thank you VLC */
-    uint32_t cpu = 0;
-#if SYS_OPENBSD
-    int      selectors[2] = { CTL_MACHDEP, CPU_ALTIVEC };
-#elif SYS_MACOSX
-    int      selectors[2] = { CTL_HW, HW_VECTORUNIT };
-#endif
-    int      has_altivec = 0;
-    size_t   length = sizeof( has_altivec );
-#if SYS_MACOSX || SYS_OPENBSD
-    int      error = sysctl( selectors, 2, &has_altivec, &length, NULL, 0 );
-#else
-    int      error = sysctlbyname( "hw.altivec", &has_altivec, &length, NULL, 0 );
-#endif
-
-    if( error == 0 && has_altivec != 0 )
-        cpu |= X264_CPU_ALTIVEC;
-
-    return cpu;
-}
-
-#elif SYS_LINUX
-
-uint32_t x264_cpu_detect( void )
-{
-#ifdef __NO_FPRS__
-    return 0;
-#else
-    static void (*oldsig)( int );
-
-    oldsig = signal( SIGILL, sigill_handler );
-    if( sigsetjmp( jmpbuf, 1 ) )
-    {
-        signal( SIGILL, oldsig );
-        return 0;
-    }
-
-    canjump = 1;
-    asm volatile( "mtspr 256, %0\n\t"
-                  "vand 0, 0, 0\n\t"
-                  :
-                  : "r"(-1) );
-    canjump = 0;
-
-    signal( SIGILL, oldsig );
-
-    return X264_CPU_ALTIVEC;
-#endif
-}
-#endif
-
-#elif ARCH_ARM
-
-void x264_cpu_neon_test( void );
-int x264_cpu_fast_neon_mrc_test( void );
-
-uint32_t x264_cpu_detect( void )
-{
-    int flags = 0;
-#if HAVE_ARMV6
-    flags |= X264_CPU_ARMV6;
-
-    // don't do this hack if compiled with -mfpu=neon
-#if !HAVE_NEON
-    static void (* oldsig)( int );
-    oldsig = signal( SIGILL, sigill_handler );
-    if( sigsetjmp( jmpbuf, 1 ) )
-    {
-        signal( SIGILL, oldsig );
-        return flags;
-    }
-
-    canjump = 1;
-    x264_cpu_neon_test();
-    canjump = 0;
-    signal( SIGILL, oldsig );
-#endif
-
-    flags |= X264_CPU_NEON;
-
-    // fast neon -> arm (Cortex-A9) detection relies on user access to the
-    // cycle counter; this assumes ARMv7 performance counters.
-    // NEON requires at least ARMv7, ARMv8 may require changes here, but
-    // hopefully this hacky detection method will have been replaced by then.
-    // Note that there is potential for a race condition if another program or
-    // x264 instance disables or reinits the counters while x264 is using them,
-    // which may result in incorrect detection and the counters stuck enabled.
-    // right now Apple does not seem to support performance counters for this test
-#ifndef __MACH__
-    flags |= x264_cpu_fast_neon_mrc_test() ? X264_CPU_FAST_NEON_MRC : 0;
-#endif
-    // TODO: write dual issue test? currently it's A8 (dual issue) vs. A9 (fast mrc)
-#endif
-    return flags;
-}
-
-#elif ARCH_AARCH64
-
-uint32_t x264_cpu_detect( void )
-{
-    return X264_CPU_ARMV8 | X264_CPU_NEON;
-}
-
-#elif ARCH_MIPS
-
-uint32_t x264_cpu_detect( void )
-{
-    uint32_t flags = 0;
-#if HAVE_MSA
-    flags |= X264_CPU_MSA;
-#endif
-    return flags;
-}
-
-#else
-
-uint32_t x264_cpu_detect( void )
-{
-    return 0;
-}
-
-#endif
-
-int x264_cpu_num_processors( void )
-{
-#if !HAVE_THREAD
-    return 1;
-
-#elif SYS_WINDOWS
-    return x264_pthread_num_processors_np();
-
-#elif SYS_CYGWIN || SYS_SunOS
-    return sysconf( _SC_NPROCESSORS_ONLN );
-
-#elif SYS_LINUX
-#ifdef __ANDROID__
-    // Android NDK does not expose sched_getaffinity
-    return sysconf( _SC_NPROCESSORS_CONF );
-#else
-    cpu_set_t p_aff;
-    memset( &p_aff, 0, sizeof(p_aff) );
-    if( sched_getaffinity( 0, sizeof(p_aff), &p_aff ) )
+    if (cpu_flags_raw < 0)
         return 1;
-#if HAVE_CPU_COUNT
-    return CPU_COUNT(&p_aff);
-#else
-    int np = 0;
-    for( unsigned int bit = 0; bit < 8 * sizeof(p_aff); bit++ )
-        np += (((uint8_t *)&p_aff)[bit / 8] >> (bit % 8)) & 1;
-    return np;
-#endif
-#endif
 
-#elif SYS_BEOS
-    system_info info;
-    get_system_info( &info );
-    return info.cpu_count;
+    for (;;) {
+        int c = getopt(argc, argv, "c:t:");
+        if (c == -1)
+            break;
+        switch (c) {
+        case 'c':
+        {
+            unsigned flags = av_get_cpu_flags();
+            if (av_parse_cpu_caps(&flags, optarg) < 0)
+                return 2;
 
-#elif SYS_MACOSX || SYS_FREEBSD || SYS_OPENBSD
-    int ncpu;
-    size_t length = sizeof( ncpu );
-#if SYS_OPENBSD
-    int mib[2] = { CTL_HW, HW_NCPU };
-    if( sysctl(mib, 2, &ncpu, &length, NULL, 0) )
-#else
-    if( sysctlbyname("hw.ncpu", &ncpu, &length, NULL, 0) )
-#endif
-    {
-        ncpu = 1;
+            av_force_cpu_flags(flags);
+            break;
+        }
+        case 't':
+        {
+            int len = av_strlcpy(threads, optarg, sizeof(threads));
+            if (len >= sizeof(threads)) {
+                fprintf(stderr, "Invalid thread count '%s'\n", optarg);
+                return 2;
+            }
+        }
+        }
     }
-    return ncpu;
 
-#else
-    return 1;
-#endif
+    cpu_flags_eff = av_get_cpu_flags();
+
+    if (cpu_flags_eff < 0)
+        return 3;
+
+    print_cpu_flags(cpu_flags_raw, "raw");
+    print_cpu_flags(cpu_flags_eff, "effective");
+    printf("threads = %s (cpu_count = %d)\n", threads, cpu_count);
+
+    return 0;
 }
+
+#endif

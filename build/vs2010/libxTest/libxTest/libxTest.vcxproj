@@ -51,6 +51,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-DARCH_X86=1 -DHAVE_MMX=1 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>./</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -85,14 +86,10 @@
     <ClCompile Include="..\..\..\..\src\h264pred_template.c" />
     <ClCompile Include="..\..\..\..\src\x86\h264pred_init.c" />
     <ClCompile Include="..\..\..\..\utils\cpu.c" />
+    <ClCompile Include="..\..\..\..\utils\x86\cpu-a.c" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\..\..\..\src\x86\h264_intrapred.asm">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -I %(RootDir)%(Directory)\ -f win32  -DHAVE_ALIGNED_STACK=0 -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -DPREFIX -DWIN32=1 -DHAVE_CPUNOP=0  -DARCH_X86_64=0  -o $(IntDir)%(Filename).obj %(FullPath)</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="..\..\..\..\utils\x86\cpu-a.asm">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -I %(RootDir)%(Directory)\ -f win32  -DHAVE_ALIGNED_STACK=0 -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -DPREFIX -DWIN32=1 -DHAVE_CPUNOP=0  -DARCH_X86_64=0  -o $(IntDir)%(Filename).obj %(FullPath)</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
@@ -106,6 +103,11 @@
     <None Include="..\..\..\..\src\arm\h264pred_neon.S">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </None>
+    <CustomBuild Include="..\..\..\..\utils\x86\cpuid.asm">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -I %(RootDir)%(Directory)\ -f win32  -DHAVE_ALIGNED_STACK=0 -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -DPREFIX -DWIN32=1 -DHAVE_CPUNOP=0  -DARCH_X86_64=0  -o $(IntDir)%(Filename).obj %(FullPath)</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

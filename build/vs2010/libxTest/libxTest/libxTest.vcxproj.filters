@@ -45,6 +45,9 @@
     <ClCompile Include="..\..\..\..\src\arm\h264pred_init.c">
       <Filter>源文件\src\arm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\utils\x86\cpu-a.c">
+      <Filter>源文件\utils\x86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\src\API.h">
@@ -55,11 +58,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\..\..\..\utils\x86\cpu-a.asm">
-      <Filter>源文件\utils\x86</Filter>
-    </CustomBuild>
     <CustomBuild Include="..\..\..\..\src\x86\h264_intrapred.asm">
       <Filter>源文件\src\x86</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\..\..\..\utils\x86\cpuid.asm">
+      <Filter>源文件\utils\x86</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
