@@ -16,9 +16,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libavutil/cpu.h"
-#include "libavutil/cpu_internal.h"
-#include "config.h"
+#include "../cpu.h"
+#include "../cpu_internal.h"
+#include "../config.h"
 
 #define CORE_FLAG(f) \
     (AV_CPU_FLAG_ ## f * (HAVE_ ## f ## _EXTERNAL || HAVE_ ## f ## _INLINE))
@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "libavutil/avstring.h"
+//#include "libavutil/avstring.h"
 
 #define AT_HWCAP        16
 
@@ -67,6 +67,17 @@ static int get_hwcap(uint32_t *hwcap)
 
     fclose(f);
     return err;
+}
+
+int av_strstart(const char *str, const char *pfx, const char **ptr)
+{
+    while (*pfx && *pfx == *str) {
+        pfx++;
+        str++;
+    }
+    if (!*pfx && ptr)
+        *ptr = str;
+    return !*pfx;
 }
 
 static int get_cpuinfo(uint32_t *hwcap)
@@ -128,7 +139,7 @@ int ff_get_cpu_flags_arm(void)
        trickle down. */
     if (flags & (AV_CPU_FLAG_VFPV3 | AV_CPU_FLAG_NEON))
         flags |= AV_CPU_FLAG_ARMV6T2;
-    else if (flags & (AV_CPU_FLAG_ARMV6T2 | AV_CPU_FLAG_ARMV6))
+    else
     /* Some functions use the 'setend' instruction which is deprecated on ARMv8
      * and serializing on some ARMv7 cores. This ensures such functions
      * are only enabled on ARMv6. */
@@ -136,10 +147,6 @@ int ff_get_cpu_flags_arm(void)
 
     if (flags & AV_CPU_FLAG_ARMV6T2)
         flags |= AV_CPU_FLAG_ARMV6;
-
-    /* set the virtual VFPv2 vector mode flag */
-    if ((flags & AV_CPU_FLAG_VFP) && !(flags & (AV_CPU_FLAG_VFPV3 | AV_CPU_FLAG_NEON)))
-        flags |= AV_CPU_FLAG_VFP_VM;
 
     return flags;
 }

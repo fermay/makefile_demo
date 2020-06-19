@@ -50,7 +50,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-DARCH_X86=1 -DHAVE_MMX=1 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-DARCH_X86=1 -DARCH_X86_32=1 -DARCH_X86_64=0 -DARCH_ARM=0 -DARCH_AARCH64=0 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>./</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>

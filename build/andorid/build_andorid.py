@@ -64,7 +64,7 @@ def  excuteProcess(ndk_dir, android_dir, pure_c, delimiter):
 
 	cmd = cpy + share_lib_path + "x86" + delimiter + share_lib + "  " + out_share_path + "x86" + delimiter 
 	os.system(cmd)
-	##其他平台依次类推
+	#其他平台依次类推
 	# "==================BUILD STATIC LIBRARY===================="
 	cmd = ndk_build + " -B " + "NDK_PROJECT_PATH:=" + android_dir + " APP_BUILD_SCRIPT:=" + mk_path + delimiter + "Android_lib.mk" + " V=1 SHARED=0" + " PURE_C=" + opt
 	print(cmd)

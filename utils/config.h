@@ -1,11 +1,15 @@
-
-#define HAVE_YASM 1
+#define HAVE_INLINE_ASM 0
 
 #define HAVE_MMX2 HAVE_MMXEXT
 #define SWS_MAX_FILTER_SIZE 256
-#define ARCH_AARCH64 0
+
+//架构
+// #define ARCH_AARCH64 0
+// #define ARCH_ARM 0
+// #define ARCH_X86 0
+// #define ARCH_X86_32 0
+// #define ARCH_X86_64 0
 #define ARCH_ALPHA 0
-#define ARCH_ARM 0
 #define ARCH_AVR32 0
 #define ARCH_AVR32_AP 0
 #define ARCH_AVR32_UC 0
@@ -24,44 +28,59 @@
 #define ARCH_TILEGX 0
 #define ARCH_TILEPRO 0
 #define ARCH_TOMI 0
-#define ARCH_X86 0
-#define ARCH_X86_32 0
-#define ARCH_X86_64 0
-#define HAVE_ARMV5TE 0
-#define HAVE_ARMV6 0
-#define HAVE_ARMV6T2 0
-#define HAVE_ARMV8 0
-#define HAVE_NEON 0
-#define HAVE_VFP 0
-#define HAVE_VFPV3 0
+
+
+//纯汇编指令集
+////ARM架构相关
+#if ARCH_ARM
+	#define HAVE_ARMV5TE 1
+	#define HAVE_ARMV6 1
+	#define HAVE_ARMV6T2 1
+	#define HAVE_NEON 1
+	#define HAVE_VFP 0
+	#define HAVE_VFPV3 0
+#endif
+#if ARCH_AARCH64
+	#define HAVE_ARMV8 1
+	#define HAVE_NEON 1
+	#define HAVE_VFP 0
+	#define HAVE_VFPV3 0
+#endif
+////未知
 #define HAVE_SETEND 0
 #define HAVE_ALTIVEC 0
 #define HAVE_DCBZL 0
 #define HAVE_LDBRX 0
 #define HAVE_PPC4XX 0
 #define HAVE_VSX 0
-#define HAVE_AMD3DNOW 0
-#define HAVE_AMD3DNOWEXT 0
-#define HAVE_AVX 0
-#define HAVE_AVX2 0
-#define HAVE_FMA3 0
-#define HAVE_FMA4 0
-#define HAVE_MMX 0
-#define HAVE_MMXEXT 0
-#define HAVE_SSE 1
-#define HAVE_SSE2 1
-#define HAVE_SSE3 0
-#define HAVE_SSE4 0
-#define HAVE_SSE42 0
-#define HAVE_SSSE3 0
+////x86架构相关
+#if ARCH_X86
+	#define HAVE_YASM 1
+	#define HAVE_AMD3DNOW 0
+	#define HAVE_AMD3DNOWEXT 0
+	#define HAVE_AVX 0
+	#define HAVE_AVX2 0
+	#define HAVE_FMA3 0
+	#define HAVE_FMA4 0
+	#define HAVE_MMX 1
+	#define HAVE_MMXEXT 1
+	#define HAVE_SSE 1
+	#define HAVE_SSE2 1
+	#define HAVE_SSE3 1
+	#define HAVE_SSE4 1
+	#define HAVE_SSE42 1
+	#define HAVE_SSSE3 1
+#endif
 #define HAVE_XOP 0
 #define HAVE_CPUNOP 0
 #define HAVE_I686 0
+////MIPS架构相关
 #define HAVE_MIPSFPU 0
 #define HAVE_MIPS32R2 0
 #define HAVE_MIPSDSPR1 0
 #define HAVE_MIPSDSPR2 0
 #define HAVE_LOONGSON 0
+////ARM架构相关
 #define HAVE_ARMV5TE_EXTERNAL 0
 #define HAVE_ARMV6_EXTERNAL 0
 #define HAVE_ARMV6T2_EXTERNAL 0
@@ -69,12 +88,14 @@
 #define HAVE_NEON_EXTERNAL 0
 #define HAVE_VFP_EXTERNAL 0
 #define HAVE_VFPV3_EXTERNAL 0
+////未知
 #define HAVE_SETEND_EXTERNAL 0
 #define HAVE_ALTIVEC_EXTERNAL 0
 #define HAVE_DCBZL_EXTERNAL 0
 #define HAVE_LDBRX_EXTERNAL 0
 #define HAVE_PPC4XX_EXTERNAL 0
 #define HAVE_VSX_EXTERNAL 0
+////x86架构相关
 #define HAVE_AMD3DNOW_EXTERNAL 0
 #define HAVE_AMD3DNOWEXT_EXTERNAL 0
 #define HAVE_AVX_EXTERNAL 0
@@ -92,11 +113,14 @@
 #define HAVE_XOP_EXTERNAL 0
 #define HAVE_CPUNOP_EXTERNAL 0
 #define HAVE_I686_EXTERNAL 0
+////MIPS架构相关
 #define HAVE_MIPSFPU_EXTERNAL 0
 #define HAVE_MIPS32R2_EXTERNAL 0
 #define HAVE_MIPSDSPR1_EXTERNAL 0
 #define HAVE_MIPSDSPR2_EXTERNAL 0
 #define HAVE_LOONGSON_EXTERNAL 0
+
+//inline指令集
 #define HAVE_ARMV5TE_INLINE 0
 #define HAVE_ARMV6_INLINE 0
 #define HAVE_ARMV6T2_INLINE 0

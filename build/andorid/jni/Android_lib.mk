@@ -11,9 +11,9 @@ ASM_DIR :=
 
 #设置汇编优化使能
 ifeq ($(PURE_C),1)
-OPTIM := 1
-else
 OPTIM := 0
+else
+OPTIM := 1
 endif
 
 #设置GDB调试使能
@@ -39,8 +39,8 @@ endif
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ASM_DIR = arm
 CFLAGS += -march=armv7-a -mfpu=neon -marm
-CFLAGS += -D_REENTRANT -DARCH_ARM=$(OPTIM) -DHAVE_NEON=$(OPTIM)
-ASMFLAGS += -DARCH_ARM=$(OPTIM) -DHAVE_NEON=$(OPTIM)
+CFLAGS +=  -DARCH_ARM=$(OPTIM) -DARCH_X86=0
+ASMFLAGS += -DARCH_ARM=$(OPTIM) -P../../../utils/config.asm
 endif
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
@@ -53,8 +53,8 @@ endif
 ifeq ($(TARGET_ARCH_ABI),x86)
 ASM_DIR = x86
 CFLAGS += -march=i686 -m32 -msse -msse2 -msse3 -msse4.1
-CFLAGS += -D_REENTRANT
-ASMFLAGS += -DARCH_X86_64=0
+CFLAGS += -DARCH_X86=1 -DARCH_X86_32=1 -DARCH_X86_64=0 -DARCH_ARM=0 -DARCH_AARCH64=0
+ASMFLAGS += -DARCH_X86=1 -DARCH_X86_32=1 -DARCH_X86_64=0 -DARCH_ARM=0 -DARCH_AARCH64=0 -P../../../utils/config.asm
 endif
 
 #设置编译参数
