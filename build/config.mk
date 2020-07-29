@@ -22,7 +22,7 @@ ifeq ($(findstring MINGW, $(OS)), MINGW)
 	CPP	:= c99wrap cl
 	AR	:= lib
 	LD	:= c99wrap link
-	RC	:= rc    #rc.exe which is in visual studio installer dictory ,if you use Mingw, rc should be replaced by winres
+	RC	:= rc    #rc.exe which is in visual studio installer dictory ,if you use Mingw, rc should be replaced by winres,see: windres -o resfile.o resfile.rc ;gcc -o winhello winhello.o resfile.o -mwindows
 	ASM	:= yasm
 	
 ifeq ($(platform), x86_32)
