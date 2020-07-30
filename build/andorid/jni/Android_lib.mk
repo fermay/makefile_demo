@@ -60,7 +60,7 @@ endif
 #设置编译参数
 LOCAL_CFLAGS := $(CFLAGS)
 LOCAL_CPPFLAGS := $(CFLAGS)
-LOCAL_ASMFLAGS := $(ASMFLAGS)
+LOCAL_ASMFLAGS := $(ASMFLAGS) #https://stackoverflow.com/questions/21790328/android-ndk-and-local-arm-mode-flag
 
 include $(LOCAL_PATH)/common.mk
 
